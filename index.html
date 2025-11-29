@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Free Chai AI Chat (Phi-3 Mini)</title>
+  <title>Free Chai AI Chat (SmolLM-135M)</title>
   <style>
     body { font-family: Arial, sans-serif; background: #f0f0f0; margin: 20px; }
     #chat-history { border: 1px solid #ccc; padding: 10px; height: 400px; overflow-y: scroll; background: white; }
@@ -20,15 +20,16 @@
   <input id="user-input" type="text" placeholder="Type your message...">
   <button id="send-btn">Send</button>
   <div id="preloader">
-    <div id="progress-text">Preparing to load Phi-3 Mini model (~1000MB)...</div>
+    <div id="progress-text">Preparing to load SmolLM-135M model (~159MB)...</div>
     <progress id="progress-bar" value="0" max="100" style="width: 50%; margin-top: 10px;"></progress>
   </div>
 
   <script type="module">
     import {FilesetResolver, LlmInference} from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.22/+esm';
 
-    const MODEL_URL = 'https://huggingface.co/litert-community/Phi-3-mini-4k-instruct/resolve/main/Phi-3-mini-4k-instruct_multi-prefill-seq_q4_ekv4096.litertlm';
-    const EXPECTED_SIZE_MB = 1000;  // Approximate size in MB
+    // Public quantized model (no auth required)
+    const MODEL_URL = 'https://huggingface.co/litert-community/SmolLM-135M-Instruct/resolve/main/SmolLM-135M-Instruct_dynamic_int8.tflite';
+    const EXPECTED_SIZE_MB = 159;  // Approximate size in MB for int8 quantized version
     const SYSTEM_PROMPT = 'You are Chai, a helpful and witty assistant. Be truthful, fun, and assist the user.';
     let llm = null;
     let conversationHistory = [SYSTEM_PROMPT];
@@ -79,7 +80,7 @@
         const genaiFileset = await FilesetResolver.forGenAiTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.22/wasm');
         llm = await LlmInference.createFromOptions(genaiFileset, {
           baseOptions: { modelAssetPath: modelBlobUrl },
-          maxTokens: 4096,
+          maxTokens: 2048,  // SmolLM supports up to 2048 context
           topK: 40,
           temperature: 0.8,
           randomSeed: 42
@@ -113,7 +114,9 @@
         response += partial;
         // Update the last AI message in real-time
         const aiMessages = chatHistoryElem.querySelectorAll('.ai');
-        aiMessages[aiMessages.length - 1].textContent = `AI: ${response}`;
+        if (aiMessages.length > 0) {
+          aiMessages[aiMessages.length - 1].textContent = `AI: ${response}`;
+        }
       });
 
       conversationHistory.push(response);
