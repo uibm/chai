@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>ch-ai your chat buddy ( based on Gemma-3 1B )</title>
+  <title>Free Chai AI Chat (Phi-3 Mini)</title>
   <style>
     body { font-family: Arial, sans-serif; background: #f0f0f0; margin: 20px; }
     #chat-history { border: 1px solid #ccc; padding: 10px; height: 400px; overflow-y: scroll; background: white; }
@@ -20,15 +20,15 @@
   <input id="user-input" type="text" placeholder="Type your message...">
   <button id="send-btn">Send</button>
   <div id="preloader">
-    <div id="progress-text">Preparing to load Gemma-3 1B model (557MB)...</div>
+    <div id="progress-text">Preparing to load Phi-3 Mini model (~1000MB)...</div>
     <progress id="progress-bar" value="0" max="100" style="width: 50%; margin-top: 10px;"></progress>
   </div>
 
   <script type="module">
     import {FilesetResolver, LlmInference} from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.22/+esm';
 
-    const MODEL_URL = 'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm';
-    const EXPECTED_SIZE_MB = 557;  // Approximate size in MB
+    const MODEL_URL = 'https://huggingface.co/litert-community/Phi-3-mini-4k-instruct/resolve/main/Phi-3-mini-4k-instruct_multi-prefill-seq_q4_ekv4096.litertlm';
+    const EXPECTED_SIZE_MB = 1000;  // Approximate size in MB
     const SYSTEM_PROMPT = 'You are Chai, a helpful and witty assistant. Be truthful, fun, and assist the user.';
     let llm = null;
     let conversationHistory = [SYSTEM_PROMPT];
@@ -67,7 +67,7 @@
       }
 
       const blob = new Blob(chunks);
-      return URL.createObjectURL(blob);
+      return URL.createObjectURL(blob);  // Create a local blob URL for the model
     }
 
     async function initLLM() {
