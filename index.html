@@ -39,6 +39,46 @@
     const preloader = document.getElementById('preloader');
     const progressText = document.getElementById('progress-text');
     const progressBar = document.getElementById('progress-bar');
+    const DB_NAME = 'ChaiAI_DB';
+    const STORE_NAME = 'models';
+    const MODEL_KEY = 'smollm-135m-fp32';
+
+    // Function to open IndexedDB
+    async function openDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, 1);
+        request.onupgradeneeded = (event) => {
+          const db = event.target.result;
+          db.createObjectStore(STORE_NAME);
+        };
+        request.onsuccess = (event) => resolve(event.target.result);
+        request.onerror = (event) => reject(event.target.error);
+      });
+    }
+
+    // Check if model is cached in IndexedDB
+    async function getCachedModel() {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORE_NAME, 'readonly');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.get(MODEL_KEY);
+        request.onsuccess = () => resolve(request.result);  // Returns Blob if found
+        request.onerror = (event) => reject(event.target.error);
+      });
+    }
+
+    // Store model Blob in IndexedDB
+    async function cacheModel(blob) {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction(STORE_NAME, 'readwrite');
+        const store = transaction.objectStore(STORE_NAME);
+        const request = store.put(blob, MODEL_KEY);
+        request.onsuccess = () => resolve();
+        request.onerror = (event) => reject(event.target.error);
+      });
+    }
 
     async function downloadWithProgress(url) {
       progressText.textContent = 'Downloading model (0% complete)...';
@@ -68,14 +108,22 @@
       }
 
       const blob = new Blob(chunks);
+      await cacheModel(blob);  // Cache for future loads
       return URL.createObjectURL(blob);  // Create a local blob URL for the model
     }
 
     async function initLLM() {
       preloader.style.display = 'flex';
       try {
-        const modelBlobUrl = await downloadWithProgress(MODEL_URL);
-        progressText.textContent = 'Model downloaded. Initializing on GPU...';
+        let modelBlobUrl;
+        const cachedBlob = await getCachedModel();
+        if (cachedBlob) {
+          progressText.textContent = 'Loading cached model...';
+          modelBlobUrl = URL.createObjectURL(cachedBlob);
+        } else {
+          modelBlobUrl = await downloadWithProgress(MODEL_URL);
+        }
+        progressText.textContent = 'Model loaded. Initializing on GPU...';
 
         const genaiFileset = await FilesetResolver.forGenAiTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.22/wasm');
         llm = await LlmInference.createFromOptions(genaiFileset, {
@@ -90,7 +138,7 @@
         addMessage('AI', 'Hello! I\'m Chai, your AI buddy. Ask me anything.');
       } catch (error) {
         progressText.textContent = `Error: ${error.message}. Please check the console and try again.`;
-        console.error(error);
+        console.error('Detailed error:', error);
       }
     }
 
