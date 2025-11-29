@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Free Chai AI Chat (SmolLM-135M)</title>
+  <title>Free Chai AI Chat (SmolLM-135M FP32)</title>
   <style>
     body { font-family: Arial, sans-serif; background: #f0f0f0; margin: 20px; }
     #chat-history { border: 1px solid #ccc; padding: 10px; height: 400px; overflow-y: scroll; background: white; }
@@ -20,16 +20,16 @@
   <input id="user-input" type="text" placeholder="Type your message...">
   <button id="send-btn">Send</button>
   <div id="preloader">
-    <div id="progress-text">Preparing to load SmolLM-135M model (~159MB)...</div>
+    <div id="progress-text">Preparing to load SmolLM-135M FP32 model (~527MB)...</div>
     <progress id="progress-bar" value="0" max="100" style="width: 50%; margin-top: 10px;"></progress>
   </div>
 
   <script type="module">
     import {FilesetResolver, LlmInference} from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.22/+esm';
 
-    // Public quantized model (no auth required)
-    const MODEL_URL = 'https://huggingface.co/litert-community/SmolLM-135M-Instruct/resolve/main/SmolLM-135M-Instruct_dynamic_int8.tflite';
-    const EXPECTED_SIZE_MB = 159;  // Approximate size in MB for int8 quantized version
+    // Public FP32 model (no auth required) - direct resolve URL for download
+    const MODEL_URL = 'https://huggingface.co/litert-community/SmolLM-135M-Instruct/resolve/main/SmolLM-135M-Instruct_multi-prefill-seq_f32_ekv1280.tflite';
+    const EXPECTED_SIZE_MB = 527;  // Approximate size in MB for FP32 version
     const SYSTEM_PROMPT = 'You are Chai, a helpful and witty assistant. Be truthful, fun, and assist the user.';
     let llm = null;
     let conversationHistory = [SYSTEM_PROMPT];
@@ -80,7 +80,7 @@
         const genaiFileset = await FilesetResolver.forGenAiTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.22/wasm');
         llm = await LlmInference.createFromOptions(genaiFileset, {
           baseOptions: { modelAssetPath: modelBlobUrl },
-          maxTokens: 2048,  // SmolLM supports up to 2048 context
+          maxTokens: 1280,  // Matches ekv1280 context limit
           topK: 40,
           temperature: 0.8,
           randomSeed: 42
