@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ch-ai your chat buddy ( based on Gemma-3 1B )</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f0f0f0; margin: 20px; }
+    #chat-history { border: 1px solid #ccc; padding: 10px; height: 400px; overflow-y: scroll; background: white; }
+    #user-input { width: 80%; padding: 10px; }
+    #send-btn { padding: 10px; }
+    #preloader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); color: white; display: flex; align-items: center; justify-content: center; z-index: 1000; flex-direction: column; }
+    .message { margin: 10px 0; }
+    .user { font-weight: bold; color: blue; }
+    .ai { color: green; }
+  </style>
+</head>
+<body>
+  <h1>Free Chai AI Chat</h1>
+  <div id="chat-history"></div>
+  <input id="user-input" type="text" placeholder="Type your message...">
+  <button id="send-btn">Send</button>
+  <div id="preloader">
+    <div id="progress-text">Preparing to load Gemma-3 1B model (557MB)...</div>
+    <progress id="progress-bar" value="0" max="100" style="width: 50%; margin-top: 10px;"></progress>
+  </div>
+
+  <script type="module">
+    import {FilesetResolver, LlmInference} from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.22/+esm';
+
+    const MODEL_URL = 'https://huggingface.co/litert-community/Gemma3-1B-IT/resolve/main/Gemma3-1B-IT_multi-prefill-seq_q4_ekv4096.litertlm';
+    const EXPECTED_SIZE_MB = 557;  // Approximate size in MB
+    const SYSTEM_PROMPT = 'You are Chai, a helpful and witty assistant. Be truthful, fun, and assist the user.';
+    let llm = null;
+    let conversationHistory = [SYSTEM_PROMPT];
+    const chatHistoryElem = document.getElementById('chat-history');
+    const userInput = document.getElementById('user-input');
+    const sendBtn = document.getElementById('send-btn');
+    const preloader = document.getElementById('preloader');
+    const progressText = document.getElementById('progress-text');
+    const progressBar = document.getElementById('progress-bar');
+
+    async function downloadWithProgress(url) {
+      progressText.textContent = 'Downloading model (0% complete)...';
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch model');
+      
+      const contentLength = response.headers.get('content-length');
+      const totalBytes = contentLength ? parseInt(contentLength, 10) : null;
+      const reader = response.body.getReader();
+      let receivedBytes = 0;
+      const chunks = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        receivedBytes += value.length;
+        
+        if (totalBytes) {
+          const percent = Math.floor((receivedBytes / totalBytes) * 100);
+          const mbDownloaded = (receivedBytes / (1024 * 1024)).toFixed(0);
+          progressText.textContent = `Downloaded ${mbDownloaded}MB / ${EXPECTED_SIZE_MB}MB (${percent}%)...`;
+          progressBar.value = percent;
+        } else {
+          progressText.textContent = `Downloaded ${(receivedBytes / (1024 * 1024)).toFixed(0)}MB...`;
+        }
+      }
+
+      const blob = new Blob(chunks);
+      return URL.createObjectURL(blob);
+    }
+
+    async function initLLM() {
+      preloader.style.display = 'flex';
+      try {
+        const modelBlobUrl = await downloadWithProgress(MODEL_URL);
+        progressText.textContent = 'Model downloaded. Initializing on GPU...';
+
+        const genaiFileset = await FilesetResolver.forGenAiTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-genai@0.10.22/wasm');
+        llm = await LlmInference.createFromOptions(genaiFileset, {
+          baseOptions: { modelAssetPath: modelBlobUrl },
+          maxTokens: 4096,
+          topK: 40,
+          temperature: 0.8,
+          randomSeed: 42
+        });
+
+        preloader.style.display = 'none';
+        addMessage('AI', 'Hello! I\'m Chai, your AI buddy. Ask me anything.');
+      } catch (error) {
+        progressText.textContent = `Error: ${error.message}. Please check the console and try again.`;
+        console.error(error);
+      }
+    }
+
+    function addMessage(sender, text) {
+      const div = document.createElement('div');
+      div.classList.add('message', sender.toLowerCase());
+      div.textContent = `${sender}: ${text}`;
+      chatHistoryElem.appendChild(div);
+      chatHistoryElem.scrollTop = chatHistoryElem.scrollHeight;
+    }
+
+    async function generateResponse() {
+      const message = userInput.value.trim();
+      if (!message || !llm) return;
+      addMessage('User', message);
+      userInput.value = '';
+      conversationHistory.push(message);
+
+      let response = '';
+      await llm.generateResponse(conversationHistory.join('\n'), (partial) => {
+        response += partial;
+        // Update the last AI message in real-time
+        const aiMessages = chatHistoryElem.querySelectorAll('.ai');
+        aiMessages[aiMessages.length - 1].textContent = `AI: ${response}`;
+      });
+
+      conversationHistory.push(response);
+    }
+
+    sendBtn.addEventListener('click', generateResponse);
+    userInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') generateResponse(); });
+
+    initLLM();
+  </script>
+</body>
+</html>
